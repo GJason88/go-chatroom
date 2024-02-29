@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"chatroom/utils"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -14,6 +15,7 @@ import (
 func handleReads(conn *websocket.Conn, closeFlag chan struct{}) {
 	defer close(closeFlag)
 	for {
+		fmt.Print("> ")
 		msgType, msgBytes, err := conn.ReadMessage()
 		if err != nil {
 			log.Println("read error:", err)
@@ -27,11 +29,16 @@ func handleWrites(conn *websocket.Conn) {
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
 		line := scanner.Text()
+		if line == "" {
+			fmt.Print("> ")
+			continue
+		}
 		err := conn.WriteMessage(websocket.TextMessage, []byte(line))
 		if err != nil {
 			log.Println("write error:", err)
 		}
 	}
+
 }
 
 func main() {

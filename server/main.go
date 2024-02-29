@@ -26,7 +26,7 @@ func echo(w http.ResponseWriter, r *http.Request) {
 			log.Println("read error:", err)
 			break
 		}
-		log.Printf("received message: %s, type: %s", msgBytes, utils.FormatMessageType(msgType))
+		log.Printf("received message: %s, type: %s, addr: %s", msgBytes, utils.FormatMessageType(msgType), conn.RemoteAddr().String())
 		err = conn.WriteMessage(msgType, msgBytes)
 		if err != nil {
 			log.Println("write error:", err)
