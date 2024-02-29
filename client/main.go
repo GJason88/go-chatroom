@@ -17,9 +17,7 @@ func handleReads(conn *websocket.Conn, closeFlag chan struct{}) {
 		msgType, msgBytes, err := conn.ReadMessage()
 		if err != nil {
 			log.Println("read error:", err)
-			if err == websocket.ErrCloseSent {
-				break
-			}
+			break
 		}
 		log.Printf("message: %s, type: %s", msgBytes, utils.FormatMessageType(msgType))
 	}
