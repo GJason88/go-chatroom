@@ -16,7 +16,7 @@ func handleReads(conn *websocket.Conn, closeFlag chan struct{}) {
 	for {
 		msgType, msgBytes, err := conn.ReadMessage()
 		if err != nil {
-			log.Println("read:", err)
+			log.Println("read error:", err)
 			if err == websocket.ErrCloseSent {
 				break
 			}
@@ -31,7 +31,7 @@ func handleWrites(conn *websocket.Conn) {
 		line := scanner.Text()
 		err := conn.WriteMessage(websocket.TextMessage, []byte(line))
 		if err != nil {
-			log.Println("write:", err)
+			log.Println("write error:", err)
 		}
 	}
 }
@@ -42,7 +42,7 @@ func main() {
 
 	conn, _, err := websocket.DefaultDialer.Dial("ws://localhost:8080/echo", nil)
 	if err != nil {
-		log.Println("dial:", err)
+		log.Println("dial error:", err)
 		return
 	}
 	defer conn.Close()
@@ -56,16 +56,19 @@ func main() {
 		case <-closeFlag:
 			return
 		case <-interrupt:
-			log.Println("interrupt:")
+			log.Println("interrupt")
 			// Cleanly close the connection by sending a close message and then waiting (with timeout) for the server to close the connection.
-			conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+			err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			if err != nil {
-				log.Println("write close:", err)
+				log.Println("write close error:", err)
+				return
 			}
+			// block until closeFlag or 3 second timeout
 			select {
 			case <-closeFlag:
 			case <-time.After(3 * time.Second):
 			}
+			return
 		}
 	}
 }

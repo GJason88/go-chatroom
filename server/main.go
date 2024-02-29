@@ -23,13 +23,13 @@ func echo(w http.ResponseWriter, r *http.Request) {
 	for {
 		msgType, msgBytes, err := conn.ReadMessage()
 		if err != nil {
-			log.Println("read:", err)
+			log.Println("read error:", err)
 			break
 		}
 		log.Printf("received message: %s, type: %s", msgBytes, utils.FormatMessageType(msgType))
 		err = conn.WriteMessage(msgType, msgBytes)
 		if err != nil {
-			log.Println("write:", err)
+			log.Println("write error:", err)
 			break
 		}
 	}
