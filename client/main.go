@@ -16,7 +16,7 @@ func handleReads(conn *websocket.Conn, closeFlag chan struct{}) {
 	for {
 		msgType, msgBytes, err := conn.ReadMessage()
 		if err != nil {
-			log.Println("read", err)
+			log.Println("read:", err)
 			if err == websocket.ErrCloseSent {
 				break
 			}
@@ -29,13 +29,11 @@ func handleWrites(conn *websocket.Conn) {
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
 		line := scanner.Text()
-		handleWrite(conn, websocket.TextMessage, []byte(line), "write")
+		err := conn.WriteMessage(websocket.TextMessage, []byte(line))
+		if err != nil {
+			log.Println("write:", err)
+		}
 	}
-}
-
-func handleWrite(conn *websocket.Conn, msgType int, data []byte, errMsg string) {
-	err := conn.WriteMessage(msgType, data)
-	utils.HandleError(err, errMsg, false)
 }
 
 func main() {
@@ -43,7 +41,10 @@ func main() {
 	signal.Notify(interrupt, os.Interrupt)
 
 	conn, _, err := websocket.DefaultDialer.Dial("ws://localhost:8080/echo", nil)
-	utils.HandleError(err, "dial error", true)
+	if err != nil {
+		log.Println("dial:", err)
+		return
+	}
 	defer conn.Close()
 
 	closeFlag := make(chan struct{})
@@ -55,9 +56,12 @@ func main() {
 		case <-closeFlag:
 			return
 		case <-interrupt:
-			log.Println("interrupt")
+			log.Println("interrupt:")
 			// Cleanly close the connection by sending a close message and then waiting (with timeout) for the server to close the connection.
-			handleWrite(conn, websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""), "write close:")
+			conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+			if err != nil {
+				log.Println("write close:", err)
+			}
 			select {
 			case <-closeFlag:
 			case <-time.After(3 * time.Second):
