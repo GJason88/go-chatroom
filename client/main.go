@@ -5,6 +5,7 @@ import (
 	"chatroom/utils"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"os/signal"
 	"time"
@@ -45,7 +46,9 @@ func main() {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 
-	conn, _, err := websocket.DefaultDialer.Dial("ws://localhost:8080/echo", nil)
+	u := url.URL{Scheme: "ws", Host: "localhost:8080", Path: "/join", RawQuery: "displayName=testuser"}
+
+	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
 		log.Println("dial error:", err)
 		return
