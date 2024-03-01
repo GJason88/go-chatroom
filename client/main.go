@@ -49,8 +49,15 @@ func main() {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 
-	u := url.URL{Scheme: "ws", Host: "localhost:8080", Path: "/join", RawQuery: "displayName=testuser"}
+	fmt.Print("Enter a display name: ")
+	var displayName string
+	_, err := fmt.Scanln(&displayName)
+	if err != nil {
+		log.Println("error:", err)
+		return
+	}
 
+	u := url.URL{Scheme: "ws", Host: "localhost:8080", Path: "/join", RawQuery: "displayName=" + displayName}
 	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
 		log.Println("dial error:", err)
