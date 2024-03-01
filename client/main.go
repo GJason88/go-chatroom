@@ -23,7 +23,6 @@ func handleReads(conn *websocket.Conn, closeFlag chan struct{}) {
 			} else {
 				log.Println("read error:", err)
 			}
-
 			break
 		}
 		log.Println(string(msgBytes))

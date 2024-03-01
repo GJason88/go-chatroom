@@ -14,9 +14,9 @@ type Client struct {
 }
 
 type Room struct {
-	connectingUsers    chan Client
-	disconnectingUsers chan Client
-	users              map[string]Client // addr to client
+	connectingUsers    chan *Client
+	disconnectingUsers chan *Client
+	users              map[string]*Client // addr to client
 	messages           chan string
 }
 
@@ -37,17 +37,17 @@ func (room Room) connectClient(w http.ResponseWriter, r *http.Request) {
 		displayName,
 		conn,
 	}
-	room.connectingUsers <- client
+	room.connectingUsers <- &client
 }
 
-func (room Room) disconnectClient(client Client) {
+func (room Room) disconnectClient(client *Client) {
 	if err := client.conn.Close(); err != nil {
 		log.Println("close error:", err)
 	}
 	room.disconnectingUsers <- client
 }
 
-func (room Room) readFromClient(client Client) {
+func (room Room) readFromClient(client *Client) {
 	defer room.disconnectClient(client)
 	for {
 		_, msgBytes, err := client.conn.ReadMessage()
@@ -89,9 +89,9 @@ func (room Room) run() {
 
 func createRoom() *Room {
 	return &Room{
-		make(chan Client),
-		make(chan Client),
-		make(map[string]Client),
+		make(chan *Client),
+		make(chan *Client),
+		make(map[string]*Client),
 		make(chan string),
 	}
 }
