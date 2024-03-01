@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 
@@ -16,7 +17,7 @@ type Room struct {
 	connectingUsers    chan Client
 	disconnectingUsers chan Client
 	users              map[string]Client // addr to client
-	messages           chan []byte
+	messages           chan string
 }
 
 var upgrader = websocket.Upgrader{
@@ -24,38 +25,49 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
-func (room Room) handleClientConnect(w http.ResponseWriter, r *http.Request) {
+func (room Room) connectClient(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("upgrade error:", err)
 		return
 	}
-	log.Println("client connected:", conn.RemoteAddr().String())
+	displayName := r.URL.Query()["displayName"][0]
+	log.Printf("(%s) client connected as %s", conn.RemoteAddr().String(), displayName)
 	client := Client{
-		r.URL.Query()["displayName"][0],
+		displayName,
 		conn,
 	}
 	room.connectingUsers <- client
 }
 
-func (room Room) handleClientDisconnect(client Client) {
-	log.Println("disconnecting client:", client.conn.RemoteAddr().String())
+func (room Room) disconnectClient(client Client) {
 	if err := client.conn.Close(); err != nil {
-		log.Println("close:", err)
+		log.Println("close error:", err)
 	}
 	room.disconnectingUsers <- client
 }
 
-func (room Room) handleClientReads(client Client) {
-	defer room.handleClientDisconnect(client)
+func (room Room) readFromClient(client Client) {
+	defer room.disconnectClient(client)
 	for {
 		_, msgBytes, err := client.conn.ReadMessage()
 		if err != nil {
-			log.Println("read:", err)
+			if websocket.IsCloseError(err, 1000) {
+				log.Printf("(%s) client disconnected as %s", client.conn.RemoteAddr().String(), client.displayName)
+			} else {
+				log.Println("read error:", err)
+			}
 			break
 		}
-		log.Println("message:", string(msgBytes))
-		room.messages <- msgBytes
+		msg := fmt.Sprintf("%s: %s", client.displayName, string(msgBytes))
+		log.Printf("(%s) %s", client.conn.RemoteAddr().String(), msg)
+		room.messages <- msg
+	}
+}
+
+func (room Room) writeToClients(msg string) {
+	for _, client := range room.users {
+		client.conn.WriteMessage(websocket.TextMessage, []byte(msg))
 	}
 }
 
@@ -64,15 +76,13 @@ func (room Room) run() {
 		select {
 		case client := <-room.connectingUsers:
 			room.users[client.conn.RemoteAddr().String()] = client
-			log.Println("client", client.conn.RemoteAddr().String(), "joined room")
-			go room.handleClientReads(client)
+			room.writeToClients(fmt.Sprintf("%s has joined the room", client.displayName))
+			go room.readFromClient(client)
 		case client := <-room.disconnectingUsers:
+			room.writeToClients(fmt.Sprintf("%s has left the room", client.displayName))
 			delete(room.users, client.conn.RemoteAddr().String())
-			log.Println("client", client.conn.RemoteAddr().String(), "left room")
 		case msg := <-room.messages:
-			for _, client := range room.users {
-				client.conn.WriteMessage(websocket.TextMessage, msg)
-			}
+			room.writeToClients(msg)
 		}
 	}
 }
@@ -82,13 +92,13 @@ func createRoom() *Room {
 		make(chan Client),
 		make(chan Client),
 		make(map[string]Client),
-		make(chan []byte),
+		make(chan string),
 	}
 }
 
 func main() {
 	room := createRoom()
 	go room.run()
-	http.HandleFunc("/join", room.handleClientConnect)
+	http.HandleFunc("/join", room.connectClient)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
