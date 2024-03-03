@@ -23,12 +23,18 @@ func joinRoomController(client *models.Client, roomNumberStr string) {
 }
 
 func createRoomController(client *models.Client, roomName string, roomSizeStr string) {
-	client.WriteText("TODO: create room")
-	// roomSize, err := strconv.Atoi(roomSizeStr)
-	// if err != nil {
-	// 	client.WriteText("Please enter a valid number for room size.")
-	// 	return
-	// }
+	roomSize, err := strconv.Atoi(roomSizeStr)
+	if err != nil {
+		client.WriteText("Please enter a valid number for room size.")
+		return
+	}
+	if MIN_ROOM_SIZE > roomSize || roomSize > MAX_ROOM_SIZE {
+		client.WriteText(fmt.Sprintf("Please enter a room size between %d and %d.", MIN_ROOM_SIZE, MAX_ROOM_SIZE))
+		return
+	}
+	if len(rooms) == MAX_ROOMS {
+		client.WriteText("Max number of rooms reached. Please join an existing room or try again later.")
+	}
 	// room := models.CreateRoom(roomName, roomSize)
 }
 
@@ -37,7 +43,7 @@ func listRoomsController(client *models.Client, rooms map[int]*models.Room) {
 	w := tabwriter.NewWriter(&buf, 0, 0, 1, '.', tabwriter.AlignRight|tabwriter.Debug)
 	fmt.Fprintln(w, "Room Number\tRoom Name\tUsers")
 	for _, room := range rooms {
-		fmt.Fprintf(w, "%v\t%s\t%v/%v\n", room.Number, room.Name, len(room.Clients), room.Size)
+		fmt.Fprintf(w, "%d\t%s\t%d/%d\n", room.Number, room.Name, len(room.Clients), room.Size)
 	}
 	client.WriteText(buf.String())
 }

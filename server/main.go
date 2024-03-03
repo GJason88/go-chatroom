@@ -8,11 +8,6 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// TODO: enforce limits
-var ROOM_CAPACITY = 8
-var SERVER_CAPACITY = 32
-var MAX_ROOMS = 4
-
 var connectingClients = make(chan *models.Client)     // client type bc displayName is received from connection request
 var disconnectingClients = make(chan *websocket.Conn) // conn type bc remote addr is key
 var clients = make(map[string]*models.Client)         // {remote addr: client} all clients in server
