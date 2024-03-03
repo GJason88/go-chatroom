@@ -1,12 +1,12 @@
 package models
 
 type Room struct {
-	number               int
-	name                 string
-	size                 int
-	connectingClients    chan *Client
-	disconnectingClients chan *Client
-	clients              map[string]*Client
+	Number               int
+	Name                 string
+	Size                 int
+	ConnectingClients    chan *Client
+	DisconnectingClients chan *Client
+	Clients              map[string]*Client
 	messages             chan string
 }
 
@@ -35,7 +35,7 @@ type Room struct {
 // }
 
 func (room *Room) AddClient(client *Client) {
-	room.connectingClients <- client
+	room.ConnectingClients <- client
 	// room.listen()
 }
 

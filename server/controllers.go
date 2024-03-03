@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"chatroom/server/models"
+	"fmt"
 	"strconv"
+	"text/tabwriter"
 )
 
 func joinRoomController(client *models.Client, roomNumberStr string) {
@@ -30,5 +33,11 @@ func createRoomController(client *models.Client, roomName string, roomSizeStr st
 }
 
 func listRoomsController(client *models.Client, rooms map[int]*models.Room) {
-	client.WriteText("TODO: list rooms")
+	var buf bytes.Buffer
+	w := tabwriter.NewWriter(&buf, 0, 0, 1, '.', tabwriter.AlignRight|tabwriter.Debug)
+	fmt.Fprintln(w, "Room Number\tRoom Name\tUsers")
+	for _, room := range rooms {
+		fmt.Fprintf(w, "%v\t%s\t%v/%v\n", room.Number, room.Name, len(room.Clients), room.Size)
+	}
+	client.WriteText(buf.String())
 }
