@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"log"
+
 	"github.com/gorilla/websocket"
 )
 
@@ -14,4 +16,10 @@ var messageTypes = map[int]string{
 
 func FormatMessageType(msgType int) string {
 	return messageTypes[msgType]
+}
+
+func LogReadErrors(err error) {
+	if !websocket.IsCloseError(err, 1000) {
+		log.Println("read error:", err)
+	}
 }
