@@ -19,7 +19,7 @@ func FormatMessageType(msgType int) string {
 }
 
 func LogReadErrors(err error) {
-	if !websocket.IsCloseError(err, 1000) {
+	if !(websocket.IsCloseError(err, 1000) || err == websocket.ErrCloseSent) {
 		log.Println("read error:", err)
 	}
 }

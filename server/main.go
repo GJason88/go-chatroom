@@ -68,6 +68,7 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer func() {
+		conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 		conn.Close()
 		disconnectingClients <- conn
 	}()

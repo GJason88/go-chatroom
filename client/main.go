@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"chatroom/utils"
 	"fmt"
 	"log"
 	"net/url"
@@ -18,11 +19,7 @@ func handleReads(conn *websocket.Conn, closeFlag chan struct{}) {
 		fmt.Print("> ")
 		_, msgBytes, err := conn.ReadMessage()
 		if err != nil {
-			if err == websocket.ErrCloseSent {
-				log.Println("You have disconnected from the server")
-			} else {
-				log.Println("read error:", err)
-			}
+			utils.LogReadErrors(err)
 			break
 		}
 		log.Println(string(msgBytes))
