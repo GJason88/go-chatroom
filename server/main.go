@@ -54,7 +54,7 @@ func listen(client *Client) {
 		case "help":
 			helpAction(client)
 		case "quit", "exit":
-			quitAction(client)
+			return
 		default:
 			client.writeText(fmt.Sprintf("Unknown command: %s\nType \"help\" to see all commands.", args[0]))
 		}

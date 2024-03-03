@@ -30,7 +30,3 @@ func createAction(roomName string, client *Client) {
 func helpAction(client *Client) {
 	client.writeText("TODO: Help action")
 }
-
-func quitAction(client *Client) {
-	client.writeText(("TODO: Quit action"))
-}
