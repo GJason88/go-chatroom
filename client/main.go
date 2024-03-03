@@ -22,7 +22,7 @@ func handleReads(conn *websocket.Conn, closeFlag chan struct{}) {
 			utils.LogReadErrors(err)
 			break
 		}
-		log.Println(string(msgBytes))
+		fmt.Println(string(msgBytes))
 	}
 }
 
@@ -39,7 +39,6 @@ func handleWrites(conn *websocket.Conn) {
 			log.Println("write error:", err)
 		}
 	}
-
 }
 
 func main() {

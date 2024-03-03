@@ -1,8 +1,9 @@
-package main
+package models
 
 type Room struct {
 	number               int
 	name                 string
+	size                 int
 	connectingClients    chan *Client
 	disconnectingClients chan *Client
 	clients              map[string]*Client
@@ -33,13 +34,19 @@ type Room struct {
 // 	}
 // }
 
-func createRoom() *Room {
+func (room *Room) AddClient(client *Client) {
+	room.connectingClients <- client
+	// room.listen()
+}
+
+func CreateRoom(roomName string, size int) *Room {
 	autoIncRoomId.Lock()
 	defer autoIncRoomId.Unlock()
 	autoIncRoomId.id++
 	return &Room{
 		autoIncRoomId.id,
-		"room",
+		roomName,
+		size,
 		make(chan *Client),
 		make(chan *Client),
 		make(map[string]*Client),
