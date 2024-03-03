@@ -12,10 +12,6 @@ import (
 )
 
 func handleConnection(w http.ResponseWriter, r *http.Request) {
-	if len(clients) == SERVER_CAPACITY {
-		w.Write([]byte("Server capacity reached. Please try again later."))
-		return
-	}
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("upgrade error:", err)
@@ -24,7 +20,7 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 		conn.Close()
-		disconnectingClients <- conn
+		disconnectingConns <- conn
 	}()
 	client := models.CreateClient(r.URL.Query()["displayName"][0], conn)
 	connectingClients <- client
