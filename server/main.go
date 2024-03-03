@@ -10,6 +10,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// TODO: enforce limits
 var ROOM_CAPACITY = 8
 var SERVER_CAPACITY = 32
 var MAX_ROOMS = 4
@@ -52,6 +53,8 @@ func listen(client *Client) {
 			createAction(args[1], client)
 		case "help":
 			helpAction(client)
+		case "quit", "exit":
+			quitAction(client)
 		default:
 			client.writeText(fmt.Sprintf("Unknown command: %s\nType \"help\" to see all commands.", args[0]))
 		}
