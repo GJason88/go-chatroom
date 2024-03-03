@@ -32,10 +32,12 @@ func createRoomController(client *models.Client, roomName string, roomSizeStr st
 		client.WriteText(fmt.Sprintf("Please enter a room size between %d and %d.", MIN_ROOM_SIZE, MAX_ROOM_SIZE))
 		return
 	}
+	// TODO: race condition
 	if len(rooms) == MAX_ROOMS {
 		client.WriteText("Max number of rooms reached. Please join an existing room or try again later.")
 	}
 	// room := models.CreateRoom(roomName, roomSize)
+
 }
 
 func listRoomsController(client *models.Client, rooms map[int]*models.Room) {
