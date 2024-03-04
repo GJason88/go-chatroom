@@ -4,17 +4,14 @@ import (
 	"bytes"
 	"chatroom/server/models"
 	"fmt"
+	"log"
 	"strconv"
 	"text/tabwriter"
 )
 
-func joinRoomController(client *models.Client, roomNumberStr string) {
-	roomNumber, err := strconv.Atoi(roomNumberStr)
-	if err != nil {
-		client.WriteText("Please enter a valid number.")
-		return
-	}
-	room, ok := rooms[roomNumber]
+// Adds client to a room
+func addClientToRoom(client *models.Client, roomNumber int) {
+	room, ok := rooms.roomMap[roomNumber]
 	if !ok {
 		client.WriteText("Room does not exist.")
 		return
@@ -22,30 +19,46 @@ func joinRoomController(client *models.Client, roomNumberStr string) {
 	room.AddClient(client)
 }
 
-func createRoomController(client *models.Client, roomName string, roomSizeStr string) {
+// Creates a room and adds it to the server, returns the room
+func createRoom(client *models.Client, roomName string, roomSizeStr string) *models.Room {
 	roomSize, err := strconv.Atoi(roomSizeStr)
 	if err != nil {
 		client.WriteText("Please enter a valid number for room size.")
-		return
+		return nil
 	}
 	if MIN_ROOM_SIZE > roomSize || roomSize > MAX_ROOM_SIZE {
 		client.WriteText(fmt.Sprintf("Please enter a room size between %d and %d.", MIN_ROOM_SIZE, MAX_ROOM_SIZE))
-		return
+		return nil
 	}
-	// TODO: race condition
-	if len(rooms) == MAX_ROOMS {
+	room := models.CreateRoom(roomName, roomSize)
+	rooms.Lock()
+	defer rooms.Unlock()
+	if len(rooms.roomMap) == MAX_ROOMS {
 		client.WriteText("Max number of rooms reached. Please join an existing room or try again later.")
+		return nil
 	}
-	// room := models.CreateRoom(roomName, roomSize)
-
+	rooms.roomMap[room.GetNumber()] = room
+	log.Printf("(%s) %s created room \"%s\" with size %d", client.GetConn().RemoteAddr().String(), client.GetDisplayName(), roomName, roomSize)
+	return room
 }
 
-func listRoomsController(client *models.Client, rooms map[int]*models.Room) {
+// Runs a room in new goroutine, removes room when done
+func runRoom(room *models.Room) {
+	defer func() {
+		rooms.Lock()
+		defer rooms.Unlock()
+		delete(rooms.roomMap, room.GetNumber())
+	}()
+	room.Run()
+}
+
+// print tabulated list of rooms to client
+func listRooms(client *models.Client, rooms map[int]*models.Room) {
 	var buf bytes.Buffer
 	w := tabwriter.NewWriter(&buf, 0, 0, 1, '.', tabwriter.AlignRight|tabwriter.Debug)
 	fmt.Fprintln(w, "Room Number\tRoom Name\tUsers")
 	for _, room := range rooms {
-		fmt.Fprintf(w, "%d\t%s\t%d/%d\n", room.Number, room.Name, len(room.Clients), room.Size)
+		fmt.Fprintf(w, "%d\t%s\t%d/%d\n", room.GetNumber(), room.GetName(), room.GetHeadCount(), room.GetCapacity())
 	}
 	client.WriteText(buf.String())
 }

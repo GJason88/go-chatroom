@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gorilla/websocket"
@@ -27,9 +28,11 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 	listen(client)
 }
 
+// TODO: figure out how to stop listening to client after they join a room
+// TODO: delete rooms when no more clients in them
 func listen(client *models.Client) {
 	for {
-		_, msgBytes, err := client.Conn.ReadMessage()
+		_, msgBytes, err := client.GetConn().ReadMessage()
 		if err != nil {
 			utils.LogReadErrors(err)
 			break
@@ -40,19 +43,27 @@ func listen(client *models.Client) {
 		}
 		switch args[0] {
 		case "rooms":
-			listRoomsController(client, rooms)
+			listRooms(client, rooms.roomMap)
 		case "join":
 			if len(args) < 2 {
 				client.WriteText("Missing room number.")
 				break
 			}
-			joinRoomController(client, args[1])
+			roomNumber, err := strconv.Atoi(args[1])
+			if err != nil {
+				client.WriteText("Please enter a valid number.")
+				return
+			}
+			addClientToRoom(client, roomNumber)
 		case "create":
 			if len(args) < 3 {
 				client.WriteText("Missing room name and/or size.")
 				break
 			}
-			createRoomController(client, args[1], args[2])
+			if room := createRoom(client, args[1], args[2]); room != nil {
+				go runRoom(room)
+				addClientToRoom(client, room.GetNumber())
+			}
 		case "help":
 			client.Help()
 		case "quit", "exit":

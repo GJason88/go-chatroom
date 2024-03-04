@@ -4,15 +4,20 @@ import (
 	"chatroom/server/models"
 	"log"
 	"net/http"
+	"sync"
 
 	"github.com/gorilla/websocket"
 )
 
-var connectingClients = make(chan *models.Client)   // client type bc displayName is received from connection request
-var disconnectingConns = make(chan *websocket.Conn) // conn type bc remote addr is key
-var clients = make(map[string]*models.Client)       // {remote addr: client} all clients in server
-var creatingRooms = make(chan *models.Room)         //
-var rooms = make(map[int]*models.Room)              // {int: room} all rooms in server
+type Rooms struct {
+	sync.Mutex
+	roomMap map[int]*models.Room
+}
+
+var connectingClients = make(chan *models.Client)      // client type bc displayName is received from connection request
+var disconnectingConns = make(chan *websocket.Conn)    // conn type bc remote addr is key
+var clients = make(map[string]*models.Client)          // {remote addr: client} all clients in server
+var rooms = Rooms{roomMap: make(map[int]*models.Room)} // {int: room} all rooms in server
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
@@ -34,8 +39,6 @@ func run() {
 			addr := conn.RemoteAddr().String()
 			log.Printf("(%s) client disconnected as %s", addr, clients[addr].DisplayName)
 			delete(clients, addr)
-		case <-creatingRooms:
-			// TODO:
 		}
 	}
 }
