@@ -37,7 +37,6 @@ func connectClient(w http.ResponseWriter, r *http.Request) {
 	log.Printf("(%s) client connected as %s", addr, displayName)
 }
 
-// TODO: delete rooms when no more clients in them
 func listen(client *models.Client) {
 	defer unlisten(client)
 	if _, ok := clients.clientMap[client.GetRemoteAddr()]; !ok { // in case of error before client is added to map
@@ -48,10 +47,12 @@ func listen(client *models.Client) {
 		if err != nil {
 			break
 		}
+
 		args := strings.Fields(msg)
 		if len(args) == 0 {
 			continue
 		}
+
 		switch args[0] {
 		case "rooms":
 			listRooms(client, rooms.roomMap)
@@ -65,7 +66,12 @@ func listen(client *models.Client) {
 				client.WriteText("Please enter a valid number.")
 				break
 			}
-			addClientToRoom(client, roomNumber)
+			room, ok := rooms.roomMap[roomNumber]
+			if !ok {
+				client.WriteText("Room does not exist.")
+				break
+			}
+			room.AddClient(client)
 		case "create":
 			if len(args) < 3 {
 				client.WriteText("Missing room name and/or size.")
@@ -73,7 +79,7 @@ func listen(client *models.Client) {
 			}
 			if room := createRoom(client, args[1], args[2]); room != nil {
 				go runRoom(room)
-				addClientToRoom(client, room.GetNumber())
+				room.AddClient(client)
 			}
 		case "help":
 			client.Help()
@@ -93,7 +99,7 @@ func disconnectClient(client *models.Client) {
 
 func unlisten(client *models.Client) {
 	disconnect := true
-	defer func() {
+	defer func() { // in case of panic in loop for any reason
 		if disconnect {
 			disconnectClient(client)
 		}

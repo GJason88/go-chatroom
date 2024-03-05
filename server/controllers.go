@@ -9,16 +9,6 @@ import (
 	"text/tabwriter"
 )
 
-// Adds client to a room, blocks and listens within room
-func addClientToRoom(client *models.Client, roomNumber int) {
-	room, ok := rooms.roomMap[roomNumber]
-	if !ok {
-		client.WriteText("Room does not exist.")
-		return
-	}
-	room.AddAndListen(client)
-}
-
 // Creates a room and adds it to the server, returns the room
 func createRoom(client *models.Client, roomName string, roomSizeStr string) *models.Room {
 	roomSize, err := strconv.Atoi(roomSizeStr)

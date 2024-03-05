@@ -14,39 +14,35 @@ type Room struct {
 	number   int
 	name     string
 	capacity int
-	clients  map[string]*Client
+	clients  Clients
 	messages chan string
+	done     chan bool
 }
 
-// func (room Room) readFromClient(client *Client) {
-// 	defer disconnectClient(client)
-// 	for {
-// 		_, msgBytes, err := client.conn.ReadMessage()
-// 		if err != nil {
-// 			if websocket.IsCloseError(err, 1000) {
-// 				log.Printf("(%s) client disconnected as %s", client.conn.RemoteAddr().String(), client.displayName)
-// 			} else {
-// 				log.Println("read error:", err)
-// 			}
-// 			break
-// 		}
-// 		msg := fmt.Sprintf("%s: %s", client.displayName, string(msgBytes))
-// 		log.Printf("(%s) %s", client.conn.RemoteAddr().String(), msg)
-// 		room.messages <- msg
-// 	}
-// }
-
 func (r *Room) writeToClients(msg string) {
-	for _, c := range r.clients {
+	for _, c := range r.clients.clientMap {
 		c.WriteText(msg)
 	}
 }
 
-func (r *Room) AddAndListen(client *Client) {
+func (r *Room) AddClient(client *Client) {
+	defer func() { go r.listen(client) }()
+	r.clients.Lock()
+	defer r.clients.Unlock()
+	if r.GetHeadCount() == 0 {
+		client.WriteText("Room no longer exists.")
+	}
+	r.clients.clientMap[client.GetRemoteAddr()] = client
+	client.WriteText(fmt.Sprintf("You have connected to \"%s\". Type \"/leave\" to leave.", r.name))
+	r.messages <- fmt.Sprintf("%s has joined the room", client.GetDisplayName())
+}
+
+func (r *Room) listen(client *Client) {
+	defer r.removeClient(client)
+	if _, ok := r.clients.clientMap[client.GetRemoteAddr()]; !ok {
+		return
+	}
 	for {
-		if len(r.clients) == 0 {
-			break
-		}
 		msg, err := client.ReadText()
 		if err != nil || msg == "/leave" {
 			break
@@ -55,12 +51,14 @@ func (r *Room) AddAndListen(client *Client) {
 	}
 }
 
+// TODO: solution to relisten to client in lobby
 func (r *Room) removeClient(client *Client) {
-
+	delete(r.clients.clientMap, client.GetRemoteAddr())
+	r.messages <- fmt.Sprintf("%s has left the room", client.GetDisplayName())
 }
 
 func (r *Room) HasClient(client *Client) bool {
-	_, ok := r.clients[client.GetRemoteAddr()]
+	_, ok := r.clients.clientMap[client.GetRemoteAddr()]
 	return ok
 }
 
@@ -77,32 +75,18 @@ func (r *Room) GetName() string {
 }
 
 func (r *Room) GetHeadCount() int {
-	return len(r.clients)
+	return len(r.clients.clientMap)
 }
 
 func (r *Room) Run() {
-	// for {
-	// 	if len(r.clients) == 0 {
-	// 		break
-	// 	}
-	// 	select {
-	// 	case client := <-r.joiningClients:
-	// 		if len(r.clients) == r.capacity {
-	// 			client.WriteText("Room is full.")
-	// 			r.leavingClients <- client
-	// 			break
-	// 		}
-	// 		r.clients[client.GetConn().RemoteAddr().String()] = client
-	// 		client.WriteText("You have connected to the room. Type \"/leave\" to leave.")
-	// 		r.writeToClients(fmt.Sprintf("%s has joined the room", client.displayName))
-	// 	case client := <-r.leavingClients:
-	// 		// TODO:
-	// 		fmt.Println(client.GetDisplayName())
-	// 	case msg := <-r.messages:
-	// 		// TODO:
-	// 		fmt.Println(msg)
-	// 	}
-	// }
+	for {
+		select {
+		case <-r.done:
+			return
+		case msg := <-r.messages:
+			r.writeToClients(msg)
+		}
+	}
 }
 
 func CreateRoom(roomName string, size int) *Room {
@@ -113,12 +97,8 @@ func CreateRoom(roomName string, size int) *Room {
 		autoIncRoomId.id,
 		roomName,
 		size,
-		make(chan *Client),
-		make(chan *Client),
-		make(map[string]*Client),
+		Clients{clientMap: make(map[string]*Client)},
 		make(chan string),
+		make(chan bool),
 	}
 }
-
-// go room.readFromClient(client)
-// room.writeToClients(fmt.Sprintf("%s has left the room", client.displayName))
