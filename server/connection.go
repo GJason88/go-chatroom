@@ -32,22 +32,17 @@ func connectClient(w http.ResponseWriter, r *http.Request) {
 	displayName := r.URL.Query()["displayName"][0]
 
 	client := models.CreateClient(displayName, conn)
+	defer func() { go listen(client) }()
 	clients.clientMap[addr] = client
-
 	log.Printf("(%s) client connected as %s", addr, displayName)
-	go listen(client)
 }
 
-func disconnectClient(client *models.Client) {
-	addr, displayName := client.Disconnect()
-	log.Printf("(%s) client disconnected as %s", addr, displayName)
-	delete(clients.clientMap, addr)
-}
-
-// TODO: figure out how to stop listening to client after they join a room
 // TODO: delete rooms when no more clients in them
 func listen(client *models.Client) {
-	defer disconnectClient(client)
+	defer unlisten(client)
+	if _, ok := clients.clientMap[client.GetRemoteAddr()]; !ok { // in case of error before client is added to map
+		return
+	}
 	for {
 		msg, err := client.ReadText()
 		if err != nil {
@@ -68,7 +63,7 @@ func listen(client *models.Client) {
 			roomNumber, err := strconv.Atoi(args[1])
 			if err != nil {
 				client.WriteText("Please enter a valid number.")
-				return
+				break
 			}
 			addClientToRoom(client, roomNumber)
 		case "create":
@@ -86,6 +81,27 @@ func listen(client *models.Client) {
 			return
 		default:
 			client.WriteText(fmt.Sprintf("Unknown command: %s\nType \"help\" to see all commands.", args[0]))
+		}
+	}
+}
+
+func disconnectClient(client *models.Client) {
+	addr, displayName := client.Disconnect()
+	log.Printf("(%s) client disconnected as %s", addr, displayName)
+	delete(clients.clientMap, addr)
+}
+
+func unlisten(client *models.Client) {
+	disconnect := true
+	defer func() {
+		if disconnect {
+			disconnectClient(client)
+		}
+	}()
+	for _, room := range rooms.roomMap {
+		if room.HasClient(client) {
+			disconnect = false
+			return
 		}
 	}
 }

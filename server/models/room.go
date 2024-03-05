@@ -59,6 +59,11 @@ func (r *Room) removeClient(client *Client) {
 
 }
 
+func (r *Room) HasClient(client *Client) bool {
+	_, ok := r.clients[client.GetRemoteAddr()]
+	return ok
+}
+
 func (r *Room) GetCapacity() int {
 	return r.capacity
 }
