@@ -2,18 +2,20 @@ package models
 
 import (
 	"fmt"
-
-	"github.com/gorilla/websocket"
+	"sync"
 )
 
+type Clients struct {
+	sync.Mutex
+	clientMap map[string]*Client
+}
+
 type Room struct {
-	number         int
-	name           string
-	capacity       int
-	joiningClients chan *Client
-	leavingClients chan *Client
-	clients        map[string]*Client
-	messages       chan string
+	number   int
+	name     string
+	capacity int
+	clients  map[string]*Client
+	messages chan string
 }
 
 // func (room Room) readFromClient(client *Client) {
@@ -36,12 +38,25 @@ type Room struct {
 
 func (r *Room) writeToClients(msg string) {
 	for _, c := range r.clients {
-		c.GetConn().WriteMessage(websocket.TextMessage, []byte(msg))
+		c.WriteText(msg)
 	}
 }
 
-func (r *Room) AddClient(client *Client) {
-	r.joiningClients <- client
+func (r *Room) AddAndListen(client *Client) {
+	for {
+		if len(r.clients) == 0 {
+			break
+		}
+		msg, err := client.ReadText()
+		if err != nil || msg == "/leave" {
+			break
+		}
+		r.messages <- fmt.Sprintf("%s: %s", client.GetDisplayName(), msg)
+	}
+}
+
+func (r *Room) removeClient(client *Client) {
+
 }
 
 func (r *Room) GetCapacity() int {
@@ -61,28 +76,28 @@ func (r *Room) GetHeadCount() int {
 }
 
 func (r *Room) Run() {
-	for {
-		if len(r.clients) == 0 {
-			break
-		}
-		select {
-		case client := <-r.joiningClients:
-			if len(r.clients) == r.capacity {
-				client.WriteText("Room is full.")
-				r.leavingClients <- client
-				break
-			}
-			r.writeToClients(fmt.Sprintf("%s has joined the room", client.displayName))
-			r.clients[client.GetConn().RemoteAddr().String()] = client
-			// TODO: goroutine to read from client? Need to find solution to stop reading from main connection thread.
-		case client := <-r.leavingClients:
-			// TODO:
-			fmt.Println(client.GetDisplayName())
-		case msg := <-r.messages:
-			// TODO:
-			fmt.Println(msg)
-		}
-	}
+	// for {
+	// 	if len(r.clients) == 0 {
+	// 		break
+	// 	}
+	// 	select {
+	// 	case client := <-r.joiningClients:
+	// 		if len(r.clients) == r.capacity {
+	// 			client.WriteText("Room is full.")
+	// 			r.leavingClients <- client
+	// 			break
+	// 		}
+	// 		r.clients[client.GetConn().RemoteAddr().String()] = client
+	// 		client.WriteText("You have connected to the room. Type \"/leave\" to leave.")
+	// 		r.writeToClients(fmt.Sprintf("%s has joined the room", client.displayName))
+	// 	case client := <-r.leavingClients:
+	// 		// TODO:
+	// 		fmt.Println(client.GetDisplayName())
+	// 	case msg := <-r.messages:
+	// 		// TODO:
+	// 		fmt.Println(msg)
+	// 	}
+	// }
 }
 
 func CreateRoom(roomName string, size int) *Room {

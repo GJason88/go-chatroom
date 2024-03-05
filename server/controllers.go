@@ -9,14 +9,14 @@ import (
 	"text/tabwriter"
 )
 
-// Adds client to a room
+// Adds client to a room, blocks and listens within room
 func addClientToRoom(client *models.Client, roomNumber int) {
 	room, ok := rooms.roomMap[roomNumber]
 	if !ok {
 		client.WriteText("Room does not exist.")
 		return
 	}
-	room.AddClient(client)
+	room.AddAndListen(client)
 }
 
 // Creates a room and adds it to the server, returns the room
@@ -38,7 +38,7 @@ func createRoom(client *models.Client, roomName string, roomSizeStr string) *mod
 		return nil
 	}
 	rooms.roomMap[room.GetNumber()] = room
-	log.Printf("(%s) %s created room \"%s\" with size %d", client.GetConn().RemoteAddr().String(), client.GetDisplayName(), roomName, roomSize)
+	log.Printf("(%s) %s created room \"%s\" with capacity %d", client.GetRemoteAddr(), client.GetDisplayName(), roomName, roomSize)
 	return room
 }
 
