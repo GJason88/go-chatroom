@@ -31,6 +31,7 @@ func (r *Room) AddClient(client *Client) {
 	defer r.clients.Unlock()
 	if r.GetHeadCount() == 0 {
 		client.WriteText("Room no longer exists.")
+		return
 	}
 	r.clients.clientMap[client.GetRemoteAddr()] = client
 	client.WriteText(fmt.Sprintf("You have connected to \"%s\". Type \"/leave\" to leave.", r.name))
