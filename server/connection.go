@@ -28,12 +28,17 @@ func connectClient(w http.ResponseWriter, r *http.Request) {
 		log.Println("upgrade error:", err)
 		return
 	}
+	defer func() {
+		if err := recover(); err != nil {
+			conn.Close()
+		}
+	}()
 	addr := conn.RemoteAddr().String()
 	displayName := r.URL.Query()["displayName"][0]
 
 	client := models.CreateClient(displayName, conn)
-	defer func() { go listen(client) }()
 	clients.clientMap[addr] = client
+	go listen(client)
 	log.Printf("(%s) client connected as %s", addr, displayName)
 }
 
@@ -79,7 +84,7 @@ func listen(client *models.Client) {
 			}
 			if room := createRoom(client, args[1], args[2]); room != nil {
 				go runRoom(room)
-				room.AddClient(client)
+				room.AddClient(client, listen)
 			}
 		case "help":
 			client.Help()
