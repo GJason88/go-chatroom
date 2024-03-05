@@ -84,7 +84,7 @@ func listen(client *models.Client) {
 			}
 			if room := createRoom(client, args[1], args[2]); room != nil {
 				go runRoom(room)
-				room.AddClient(client, listen)
+				room.AddClient(client)
 			}
 		case "help":
 			client.Help()
