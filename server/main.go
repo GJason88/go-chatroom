@@ -30,14 +30,14 @@ func run() {
 		case client := <-connectingClients:
 			if len(clients) == SERVER_CAPACITY {
 				client.WriteText("Server capacity reached. Please try again later.")
-				disconnectingConns <- client.Conn
+				disconnectingConns <- client.GetConn()
 				break
 			}
-			clients[client.Conn.RemoteAddr().String()] = client
-			log.Printf("(%s) client connected as %s", client.Conn.RemoteAddr().String(), client.DisplayName)
+			clients[client.GetConn().RemoteAddr().String()] = client
+			log.Printf("(%s) client connected as %s", client.GetConn().RemoteAddr().String(), client.GetDisplayName())
 		case conn := <-disconnectingConns:
 			addr := conn.RemoteAddr().String()
-			log.Printf("(%s) client disconnected as %s", addr, clients[addr].DisplayName)
+			log.Printf("(%s) client disconnected as %s", addr, clients[addr].GetDisplayName())
 			delete(clients, addr)
 		}
 	}
