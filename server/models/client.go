@@ -2,11 +2,13 @@ package models
 
 import (
 	"chatroom/utils"
+	"sync"
 
 	"github.com/gorilla/websocket"
 )
 
 type Client struct {
+	sync.Mutex
 	displayName string
 	conn        *websocket.Conn
 }
@@ -21,6 +23,8 @@ func (c *Client) ReadText() (string, error) {
 }
 
 func (c *Client) WriteText(msg string) {
+	c.Lock()
+	defer c.Unlock()
 	c.conn.WriteMessage(websocket.TextMessage, []byte(msg))
 }
 
@@ -46,7 +50,7 @@ func (c *Client) Disconnect() (addr, displayName string) {
 
 func CreateClient(displayName string, conn *websocket.Conn) *Client {
 	return &Client{
-		displayName,
-		conn,
+		displayName: displayName,
+		conn:        conn,
 	}
 }
