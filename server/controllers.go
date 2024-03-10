@@ -32,7 +32,7 @@ func createRoom(client *models.Client, roomName string, roomSizeStr string) *mod
 	return room
 }
 
-// Runs a room in new goroutine, removes room when done
+// Runs a room, removes room when done
 func runRoom(room *models.Room) {
 	defer func() {
 		rooms.Lock()
@@ -45,10 +45,15 @@ func runRoom(room *models.Room) {
 // print tabulated list of rooms to client
 func listRooms(client *models.Client, rooms map[int]*models.Room) {
 	var buf bytes.Buffer
-	w := tabwriter.NewWriter(&buf, 0, 0, 1, '.', tabwriter.AlignRight|tabwriter.Debug)
+	w := tabwriter.NewWriter(&buf, 0, 0, 1, ' ', tabwriter.AlignRight|tabwriter.Debug)
 	fmt.Fprintln(w, "Room Number\tRoom Name\tUsers")
 	for _, room := range rooms {
 		fmt.Fprintf(w, "%d\t%s\t%d/%d\n", room.GetNumber(), room.GetName(), room.GetHeadCount(), room.GetCapacity())
+	}
+	if err := w.Flush(); err != nil {
+		client.WriteText("Failed to list rooms.")
+		log.Println(err)
+		return
 	}
 	client.WriteText(buf.String())
 }
