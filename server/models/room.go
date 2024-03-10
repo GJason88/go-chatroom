@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"log"
 	"sync"
 )
 
@@ -25,24 +26,28 @@ func (r *Room) writeToClients(msg string) {
 	}
 }
 
-func (r *Room) AddClient(client *Client) {
-	defer func() { go r.listen(client) }()
+func (r *Room) AddClient(client *Client, isCreator bool) {
+	defer r.removeClient(client)
 	r.clients.Lock()
-	defer r.clients.Unlock()
-	if r.GetHeadCount() == 0 {
-		client.WriteText("Room no longer exists.")
+	if !isCreator && r.GetHeadCount() == 0 {
+		r.clients.Unlock()
+		client.WriteText("Room is unavailable.")
+		return
+	}
+	if len(r.clients.clientMap) == r.capacity {
+		r.clients.Unlock()
+		client.WriteText("Room is full.")
 		return
 	}
 	r.clients.clientMap[client.GetRemoteAddr()] = client
-	client.WriteText(fmt.Sprintf("You have connected to \"%s\". Type \"/leave\" to leave.", r.name))
+	r.clients.Unlock()
+	log.Printf("(%s) %s has joined room %d (%s)", client.GetRemoteAddr(), client.GetDisplayName(), r.number, r.name)
 	r.messages <- fmt.Sprintf("%s has joined the room", client.GetDisplayName())
+	r.listen(client) // blocks
 }
 
 func (r *Room) listen(client *Client) {
-	defer r.removeClient(client)
-	if _, ok := r.clients.clientMap[client.GetRemoteAddr()]; !ok {
-		return
-	}
+	client.WriteText(fmt.Sprintf("You have connected to \"%s\". Type \"/leave\" to leave.", r.name))
 	for {
 		msg, err := client.ReadText()
 		if err != nil || msg == "/leave" {
@@ -52,10 +57,18 @@ func (r *Room) listen(client *Client) {
 	}
 }
 
-// TODO: solution to relisten to client in lobby
 func (r *Room) removeClient(client *Client) {
+	if !r.HasClient(client) {
+		return
+	}
+	r.clients.Lock()
+	defer r.clients.Unlock()
 	delete(r.clients.clientMap, client.GetRemoteAddr())
+	log.Printf("(%s) %s has left room %d (%s)", client.GetRemoteAddr(), client.GetDisplayName(), r.number, r.name)
 	r.messages <- fmt.Sprintf("%s has left the room", client.GetDisplayName())
+	if len(r.clients.clientMap) == 0 {
+		r.done <- true
+	}
 }
 
 func (r *Room) HasClient(client *Client) bool {

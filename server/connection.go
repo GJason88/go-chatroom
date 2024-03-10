@@ -18,35 +18,30 @@ var upgrader = websocket.Upgrader{
 
 func connectClient(w http.ResponseWriter, r *http.Request) {
 	clients.Lock()
-	defer clients.Unlock()
 	if len(clients.clientMap) == SERVER_CAPACITY {
+		clients.Unlock()
 		w.Write([]byte("Server capacity reached. Please try again later."))
 		return
 	}
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
+		clients.Unlock()
 		log.Println("upgrade error:", err)
 		return
 	}
-	defer func() {
-		if err := recover(); err != nil {
-			conn.Close()
-		}
-	}()
+
 	addr := conn.RemoteAddr().String()
 	displayName := r.URL.Query()["displayName"][0]
+	log.Printf("(%s) client connected as %s", addr, displayName)
 
 	client := models.CreateClient(displayName, conn)
+	defer disconnectClient(client)
 	clients.clientMap[addr] = client
-	go listen(client)
-	log.Printf("(%s) client connected as %s", addr, displayName)
+	clients.Unlock()
+	listen(client)
 }
 
 func listen(client *models.Client) {
-	defer unlisten(client)
-	if _, ok := clients.clientMap[client.GetRemoteAddr()]; !ok { // in case of error before client is added to map
-		return
-	}
 	for {
 		msg, err := client.ReadText()
 		if err != nil {
@@ -76,7 +71,7 @@ func listen(client *models.Client) {
 				client.WriteText("Room does not exist.")
 				break
 			}
-			room.AddClient(client)
+			room.AddClient(client, false) // blocking
 		case "create":
 			if len(args) < 3 {
 				client.WriteText("Missing room name and/or size.")
@@ -84,7 +79,7 @@ func listen(client *models.Client) {
 			}
 			if room := createRoom(client, args[1], args[2]); room != nil {
 				go runRoom(room)
-				room.AddClient(client)
+				room.AddClient(client, true) // blocking
 			}
 		case "help":
 			client.Help()
@@ -99,20 +94,7 @@ func listen(client *models.Client) {
 func disconnectClient(client *models.Client) {
 	addr, displayName := client.Disconnect()
 	log.Printf("(%s) client disconnected as %s", addr, displayName)
+	clients.Lock()
+	defer clients.Unlock()
 	delete(clients.clientMap, addr)
-}
-
-func unlisten(client *models.Client) {
-	disconnect := true
-	defer func() { // in case of panic in loop for any reason
-		if disconnect {
-			disconnectClient(client)
-		}
-	}()
-	for _, room := range rooms.roomMap {
-		if room.HasClient(client) {
-			disconnect = false
-			return
-		}
-	}
 }
