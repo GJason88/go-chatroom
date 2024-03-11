@@ -29,7 +29,6 @@ func connectClient(w http.ResponseWriter, r *http.Request) {
 		log.Println("upgrade error:", err)
 		return
 	}
-
 	addr := conn.RemoteAddr().String()
 	displayName := r.URL.Query()["displayName"][0]
 	log.Printf("(%s) client connected as %s", addr, displayName)
@@ -42,6 +41,7 @@ func connectClient(w http.ResponseWriter, r *http.Request) {
 }
 
 func listen(client *models.Client) {
+	client.WriteText("Welcome to the chatroom. Type \"help\" to see commands.")
 	for {
 		msg, err := client.ReadText()
 		if err != nil {
@@ -82,7 +82,7 @@ func listen(client *models.Client) {
 				room.AddClient(client, true) // blocking
 			}
 		case "help":
-			client.Help()
+			helpCommand(client)
 		case "quit", "exit":
 			return
 		default:

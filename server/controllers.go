@@ -57,3 +57,15 @@ func listRooms(client *models.Client, rooms map[int]*models.Room) {
 	}
 	client.WriteText(buf.String())
 }
+
+func helpCommand(client *models.Client) {
+	var buf bytes.Buffer
+	w := tabwriter.NewWriter(&buf, 0, 0, 4, ' ', tabwriter.TabIndent)
+	fmt.Fprintf(w, "A simple CLI chatroom application that supports up to %d clients at a time. Supports up to %d rooms at a time, each with a capacity of %d to %d clients.\n\nCommands:\nrooms\tList all existing rooms.\njoin [room_number]\tJoin an existing room.\ncreate [room_name] [capacity]\tCreate a room with a name and capacity between 2 and 8.\nquit\tDisconnect from the chatroom application.\n", SERVER_CAPACITY, MAX_ROOMS, MIN_ROOM_SIZE, MAX_ROOM_SIZE)
+	if err := w.Flush(); err != nil {
+		client.WriteText("Command failed.")
+		log.Println(err)
+		return
+	}
+	client.WriteText(buf.String())
+}

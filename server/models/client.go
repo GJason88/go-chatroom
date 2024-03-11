@@ -28,10 +28,6 @@ func (c *Client) WriteText(msg string) {
 	c.conn.WriteMessage(websocket.TextMessage, []byte(msg))
 }
 
-func (c *Client) Help() {
-	c.WriteText("TODO: Help action")
-}
-
 func (c *Client) GetDisplayName() string {
 	return c.displayName
 }
